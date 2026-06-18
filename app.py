@@ -23,54 +23,60 @@ def convert_html_to_xml(html, article_id):
 
     xml_lines = []
     image_found = False
+    processed_bullets = set()
 
     xml_lines.append("<set>")
 
-    processed_bullets = set()
-
     for tag in soup.find_all(["div", "p", "img", "hr"]):
 
-        # -------------------------
-        # BULLET DIV
-        # -------------------------
-        if (
-            tag.name == "div"
-            and tag.find("img", class_="iot_bullet")
-        ):
+        # -----------------------
+        # BULLET
+        # -----------------------
+        if tag.name == "div":
 
-            bullet_p = tag.find("p")
+            bullet_img = tag.find(
+                "img",
+                class_="iot_bullet"
+            )
 
-            if bullet_p:
+            if bullet_img:
 
-                bullet_text = bullet_p.get_text(
-                    " ",
-                    strip=True
-                )
+                bullet_p = tag.find("p")
 
-                processed_bullets.add(
-                    bullet_text
-                )
+                if bullet_p:
 
-                xml_lines.append("<bullet>")
-                xml_lines.append(bullet_text)
-                xml_lines.append("</bullet>")
+                    bullet_text = bullet_p.get_text(
+                        " ",
+                        strip=True
+                    )
 
-            continue
+                    processed_bullets.add(
+                        bullet_text
+                    )
 
-        # -------------------------
+                    xml_lines.append("<bullet>")
+                    xml_lines.append(bullet_text)
+                    xml_lines.append("</bullet>")
+
+                continue
+
+        # -----------------------
         # LINE
-        # -------------------------
+        # -----------------------
         if tag.name == "hr":
 
             xml_lines.append("<line></line>")
             continue
 
-        # -------------------------
+        # -----------------------
         # IMAGE
-        # -------------------------
+        # -----------------------
         if tag.name == "img":
 
-            if "iot_bullet" in tag.get("class", []):
+            if "iot_bullet" in tag.get(
+                "class",
+                []
+            ):
                 continue
 
             xml_lines.append(
@@ -90,13 +96,13 @@ def convert_html_to_xml(html, article_id):
         if not text:
             continue
 
-        # Skip paragraph already used in bullet
+        # Skip already handled bullet text
         if text in processed_bullets:
             continue
 
-        # -------------------------
+        # -----------------------
         # TITLE
-        # -------------------------
+        # -----------------------
         if "rasi_name" in classes:
 
             xml_lines.append("<title>")
@@ -104,9 +110,9 @@ def convert_html_to_xml(html, article_id):
             xml_lines.append("</title>")
             continue
 
-        # -------------------------
+        # -----------------------
         # HINT
-        # -------------------------
+        # -----------------------
         if (
             "rasi_subheading" in classes
             and "text-center" in classes
@@ -117,9 +123,9 @@ def convert_html_to_xml(html, article_id):
             xml_lines.append("</hint>")
             continue
 
-        # -------------------------
+        # -----------------------
         # SUBTITLE
-        # -------------------------
+        # -----------------------
         if "rasi_subheading" in classes:
 
             xml_lines.append("<subtitle>")
@@ -127,9 +133,9 @@ def convert_html_to_xml(html, article_id):
             xml_lines.append("</subtitle>")
             continue
 
-        # -------------------------
+        # -----------------------
         # CAPTION
-        # -------------------------
+        # -----------------------
         if (
             "text-center" in classes
             and "txt_bold" in classes
@@ -140,28 +146,25 @@ def convert_html_to_xml(html, article_id):
             xml_lines.append("</caption>")
             continue
 
-        # -------------------------
+        # -----------------------
         # BOLD PARAGRAPH
-        # -------------------------
+        # -----------------------
         if tag.find("b"):
 
-            inner_html = tag.decode_contents()
-
             xml_lines.append("<p>")
-            xml_lines.append(inner_html)
+            xml_lines.append(
+                tag.decode_contents()
+            )
             xml_lines.append("</p>")
             continue
 
-        # -------------------------
+        # -----------------------
         # NORMAL PARAGRAPH
-        # -------------------------
+        # -----------------------
         xml_lines.append("<p>")
         xml_lines.append(text)
         xml_lines.append("</p>")
 
-    # -------------------------
-    # ADD IMAGE IF MISSING
-    # -------------------------
     if not image_found:
 
         xml_lines.insert(
