@@ -1,4 +1,4 @@
-```python
+
 import streamlit as st
 from bs4 import BeautifulSoup
 import zipfile
@@ -165,4 +165,4 @@ if uploaded_files:
         file_name="xml_files.zip",
         mime="application/zip"
     )
-```
+
