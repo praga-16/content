@@ -85,7 +85,7 @@ def convert_html_to_xml(html, article_id):
             continue
 
         # BULLET
-        # BULLET BLOCK
+        # BULLET DIV
         if (
             tag.name == "div"
             and tag.find("img", class_="iot_bullet")
