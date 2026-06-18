@@ -1,3 +1,22 @@
+```python
+import streamlit as st
+from bs4 import BeautifulSoup
+import zipfile
+import io
+
+st.set_page_config(
+    page_title="TXT → XML Converter",
+    layout="wide"
+)
+
+st.title("TXT → XML Converter")
+
+uploaded_files = st.file_uploader(
+    "Upload TXT Files",
+    type=["txt"],
+    accept_multiple_files=True
+)
+
 def convert_html_to_xml(html, article_id):
 
     soup = BeautifulSoup(html, "html.parser")
@@ -17,7 +36,7 @@ def convert_html_to_xml(html, article_id):
         # IMAGE
         if tag.name == "img":
 
-            # Skip bullet icons
+            # Ignore bullet icon image
             if "iot_bullet" in tag.get("class", []):
                 continue
 
@@ -28,7 +47,7 @@ def convert_html_to_xml(html, article_id):
         classes = tag.get("class", [])
         text = tag.get_text("\n", strip=True)
 
-        if not text:
+        if not text and not tag.find("img", class_="iot_bullet"):
             continue
 
         # TITLE
@@ -90,10 +109,60 @@ def convert_html_to_xml(html, article_id):
         xml_lines.append(text)
         xml_lines.append("</p>")
 
-    # Add image if no image exists
+    # If image not found, add image from filename
     if not image_found:
         xml_lines.insert(1, f"<image>{article_id}</image>")
 
     xml_lines.append("</set>")
 
     return "\n\n".join(xml_lines)
+
+
+if uploaded_files:
+
+    total = len(uploaded_files)
+
+    st.success(f"{total} file(s) uploaded")
+
+    progress = st.progress(0)
+
+    zip_buffer = io.BytesIO()
+
+    with zipfile.ZipFile(
+        zip_buffer,
+        "w",
+        zipfile.ZIP_DEFLATED
+    ) as zip_file:
+
+        for idx, uploaded_file in enumerate(uploaded_files):
+
+            article_id = uploaded_file.name.replace(".txt", "")
+
+            html = uploaded_file.read().decode(
+                "utf-8",
+                errors="ignore"
+            )
+
+            xml_content = convert_html_to_xml(
+                html,
+                article_id
+            )
+
+            zip_file.writestr(
+                f"{article_id}.xml",
+                xml_content
+            )
+
+            progress.progress(
+                int(((idx + 1) / total) * 100)
+            )
+
+    st.success("Conversion Completed")
+
+    st.download_button(
+        label="Download XML ZIP",
+        data=zip_buffer.getvalue(),
+        file_name="xml_files.zip",
+        mime="application/zip"
+    )
+```
