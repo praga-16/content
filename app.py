@@ -1,5 +1,6 @@
 import streamlit as st
 from bs4 import BeautifulSoup
+from bs4.element import Tag
 import zipfile
 import io
 
@@ -10,11 +11,72 @@ st.set_page_config(
 
 st.title("TXT → XML Converter")
 
-uploaded_files = st.file_uploader(
-    "Upload TXT Files",
-    type=["txt"],
-    accept_multiple_files=True
-)
+
+def append_p_to_xml(p_tag, xml_lines, processed_bullets, article_id):
+
+    classes = p_tag.get("class", [])
+    text = p_tag.get_text("\n", strip=True)
+
+    if not text:
+        return
+
+    if text in processed_bullets:
+        return
+
+    # TITLE
+    if "rasi_name" in classes:
+
+        xml_lines.append("<title>")
+        xml_lines.append(text)
+        xml_lines.append("</title>")
+
+        xml_lines.append(
+            f"<image>{article_id}</image>"
+        )
+
+        return
+
+    # HINT
+    if (
+        "rasi_subheading" in classes
+        and "text-center" in classes
+    ):
+        xml_lines.append("<hint>")
+        xml_lines.append(text)
+        xml_lines.append("</hint>")
+        return
+
+    # SUBTITLE
+    if "rasi_subheading" in classes:
+        xml_lines.append("<subtitle>")
+        xml_lines.append(text)
+        xml_lines.append("</subtitle>")
+        return
+
+    # CAPTION
+    if (
+        "text-center" in classes
+        and "txt_bold" in classes
+    ):
+        xml_lines.append("<caption>")
+        xml_lines.append(text)
+        xml_lines.append("</caption>")
+        return
+
+    # BOLD PARAGRAPH
+    if p_tag.find("b"):
+
+        xml_lines.append("<p>")
+        xml_lines.append(
+            p_tag.decode_contents().strip()
+        )
+        xml_lines.append("</p>")
+        return
+
+    # NORMAL PARAGRAPH
+    xml_lines.append("<p>")
+    xml_lines.append(text)
+    xml_lines.append("</p>")
 
 
 def convert_html_to_xml(html, article_id):
@@ -22,16 +84,50 @@ def convert_html_to_xml(html, article_id):
     soup = BeautifulSoup(html, "html.parser")
 
     xml_lines = []
-    image_found = False
     processed_bullets = set()
 
     xml_lines.append("<set>")
 
-    for tag in soup.find_all(["div", "p", "img", "hr"]):
+    # ------------------
+    # BULLETS
+    # ------------------
+    for div in soup.find_all("div"):
 
-        # -----------------------
-        # BULLET
-        # -----------------------
+        bullet_img = div.find(
+            "img",
+            class_="iot_bullet"
+        )
+
+        bullet_p = div.find(
+            "p",
+            class_="margin_padding_10"
+        )
+
+        if bullet_img and bullet_p:
+
+            bullet_text = bullet_p.get_text(
+                " ",
+                strip=True
+            )
+
+            if (
+                bullet_text
+                and bullet_text
+                not in processed_bullets
+            ):
+
+                processed_bullets.add(
+                    bullet_text
+                )
+
+    # ------------------
+    # PROCESS IN ORDER
+    # ------------------
+    for tag in soup.find_all(
+        ["p", "div"]
+    ):
+
+        # BULLET DIV
         if tag.name == "div":
 
             bullet_img = tag.find(
@@ -39,134 +135,38 @@ def convert_html_to_xml(html, article_id):
                 class_="iot_bullet"
             )
 
-            if bullet_img:
-
-                bullet_p = tag.find("p")
-
-                if bullet_p:
-
-                    bullet_text = bullet_p.get_text(
-                        " ",
-                        strip=True
-                    )
-
-                    processed_bullets.add(
-                        bullet_text
-                    )
-
-                    xml_lines.append("<bullet>")
-                    xml_lines.append(bullet_text)
-                    xml_lines.append("</bullet>")
-
-                continue
-
-        # -----------------------
-        # LINE
-        # -----------------------
-        if tag.name == "hr":
-
-            xml_lines.append("<line></line>")
-            continue
-
-        # -----------------------
-        # IMAGE
-        # -----------------------
-        if tag.name == "img":
-
-            if "iot_bullet" in tag.get(
-                "class",
-                []
-            ):
-                continue
-
-            xml_lines.append(
-                f"<image>{article_id}</image>"
+            bullet_p = tag.find(
+                "p",
+                class_="margin_padding_10"
             )
 
-            image_found = True
+            if bullet_img and bullet_p:
+
+                bullet_text = bullet_p.get_text(
+                    " ",
+                    strip=True
+                )
+
+                xml_lines.append("<bullet>")
+                xml_lines.append(
+                    bullet_text
+                )
+                xml_lines.append("</bullet>")
+
             continue
 
-        classes = tag.get("class", [])
-
-        text = tag.get_text(
-            "\n",
-            strip=True
+        append_p_to_xml(
+            tag,
+            xml_lines,
+            processed_bullets,
+            article_id
         )
 
-        if not text:
-            continue
-
-        # Skip already handled bullet text
-        if text in processed_bullets:
-            continue
-
-        # -----------------------
-        # TITLE
-        # -----------------------
-        if "rasi_name" in classes:
-
-            xml_lines.append("<title>")
-            xml_lines.append(text)
-            xml_lines.append("</title>")
-            continue
-
-        # -----------------------
-        # HINT
-        # -----------------------
-        if (
-            "rasi_subheading" in classes
-            and "text-center" in classes
-        ):
-
-            xml_lines.append("<hint>")
-            xml_lines.append(text)
-            xml_lines.append("</hint>")
-            continue
-
-        # -----------------------
-        # SUBTITLE
-        # -----------------------
-        if "rasi_subheading" in classes:
-
-            xml_lines.append("<subtitle>")
-            xml_lines.append(text)
-            xml_lines.append("</subtitle>")
-            continue
-
-        # -----------------------
-        # CAPTION
-        # -----------------------
-        if (
-            "text-center" in classes
-            and "txt_bold" in classes
-        ):
-
-            xml_lines.append("<caption>")
-            xml_lines.append(text)
-            xml_lines.append("</caption>")
-            continue
-
-        # -----------------------
-        # BOLD PARAGRAPH
-        # -----------------------
-        if tag.find("b"):
-
-            xml_lines.append("<p>")
-            xml_lines.append(
-                tag.decode_contents()
-            )
-            xml_lines.append("</p>")
-            continue
-
-        # -----------------------
-        # NORMAL PARAGRAPH
-        # -----------------------
-        xml_lines.append("<p>")
-        xml_lines.append(text)
-        xml_lines.append("</p>")
-
-    if not image_found:
-
+    # If title not found
+    if (
+        f"<image>{article_id}</image>"
+        not in xml_lines
+    ):
         xml_lines.insert(
             1,
             f"<image>{article_id}</image>"
@@ -177,12 +177,16 @@ def convert_html_to_xml(html, article_id):
     return "\n\n".join(xml_lines)
 
 
+uploaded_files = st.file_uploader(
+    "Upload TXT Files",
+    type=["txt"],
+    accept_multiple_files=True
+)
+
 if uploaded_files:
 
-    total = len(uploaded_files)
-
     st.success(
-        f"{total} file(s) uploaded"
+        f"{len(uploaded_files)} files uploaded"
     )
 
     progress = st.progress(0)
@@ -195,23 +199,27 @@ if uploaded_files:
         zipfile.ZIP_DEFLATED
     ) as zip_file:
 
-        for idx, uploaded_file in enumerate(
+        total = len(uploaded_files)
+
+        for idx, file in enumerate(
             uploaded_files
         ):
 
             article_id = (
-                uploaded_file.name
+                file.name
                 .replace(".txt", "")
             )
 
-            html = uploaded_file.read().decode(
+            html = file.read().decode(
                 "utf-8",
                 errors="ignore"
             )
 
-            xml_content = convert_html_to_xml(
-                html,
-                article_id
+            xml_content = (
+                convert_html_to_xml(
+                    html,
+                    article_id
+                )
             )
 
             zip_file.writestr(
@@ -221,12 +229,13 @@ if uploaded_files:
 
             progress.progress(
                 int(
-                    ((idx + 1) / total) * 100
+                    ((idx + 1) / total)
+                    * 100
                 )
             )
 
     st.success(
-        "Conversion Completed"
+        "XML Conversion Completed"
     )
 
     st.download_button(
