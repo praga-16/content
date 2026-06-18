@@ -85,13 +85,25 @@ def convert_html_to_xml(html, article_id):
             continue
 
         # BULLET
-        if tag.find("img", class_="iot_bullet"):
-
-            bullet_text = tag.get_text(" ", strip=True)
-
-            xml_lines.append("<bullet>")
-            xml_lines.append(bullet_text)
-            xml_lines.append("</bullet>")
+        # BULLET BLOCK
+        if (
+            tag.name == "div"
+            and tag.find("img", class_="iot_bullet")
+        ):
+        
+            bullet_p = tag.find("p")
+        
+            if bullet_p:
+        
+                bullet_text = bullet_p.get_text(
+                    " ",
+                    strip=True
+                )
+        
+                xml_lines.append("<bullet>")
+                xml_lines.append(bullet_text)
+                xml_lines.append("</bullet>")
+        
             continue
 
         # BOLD PARAGRAPH
