@@ -81,6 +81,7 @@ def convert_html_to_xml(html, article_id):
 
     processed_bullets = set()
 
+    # Find all bullet texts
     for div in soup.find_all("div"):
 
         bullet_img = div.find(
@@ -104,6 +105,7 @@ def convert_html_to_xml(html, article_id):
                 bullet_text
             )
 
+    # Process all paragraph tags
     for tag in soup.find_all("p"):
 
         text = tag.get_text(
@@ -116,6 +118,7 @@ def convert_html_to_xml(html, article_id):
 
         classes = tag.get("class", [])
 
+        # BULLET
         if text in processed_bullets:
 
             xml_lines.append("<bullet>")
@@ -123,6 +126,7 @@ def convert_html_to_xml(html, article_id):
             xml_lines.append("</bullet>")
             continue
 
+        # TITLE
         if "rasi_name" in classes:
 
             xml_lines.append("<title>")
@@ -136,6 +140,7 @@ def convert_html_to_xml(html, article_id):
             title_found = True
             continue
 
+        # HINT
         if (
             "rasi_subheading" in classes
             and "text-center" in classes
@@ -146,6 +151,7 @@ def convert_html_to_xml(html, article_id):
             xml_lines.append("</hint>")
             continue
 
+        # SUBTITLE
         if "rasi_subheading" in classes:
 
             xml_lines.append("<subtitle>")
@@ -153,6 +159,7 @@ def convert_html_to_xml(html, article_id):
             xml_lines.append("</subtitle>")
             continue
 
+        # CAPTION
         if (
             "text-center" in classes
             and "txt_bold" in classes
@@ -163,10 +170,22 @@ def convert_html_to_xml(html, article_id):
             xml_lines.append("</caption>")
             continue
 
+        # BOLD PARAGRAPH
+        if tag.find("b"):
+
+            inner_html = tag.decode_contents()
+
+            xml_lines.append("<p>")
+            xml_lines.append(inner_html)
+            xml_lines.append("</p>")
+            continue
+
+        # NORMAL PARAGRAPH
         xml_lines.append("<p>")
         xml_lines.append(text)
         xml_lines.append("</p>")
 
+    # If title not found add image manually
     if not title_found:
 
         xml_lines.insert(
