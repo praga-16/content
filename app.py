@@ -1,3 +1,4 @@
+```python
 import streamlit as st
 from bs4 import BeautifulSoup
 import zipfile
@@ -24,6 +25,7 @@ def convert_html_to_xml(html, article_id):
 
     for tag in soup.find_all(["p", "img"]):
 
+        # IMAGE
         if tag.name == "img":
             xml_lines.append(f"<image>{article_id}</image>")
             image_found = True
@@ -35,28 +37,38 @@ def convert_html_to_xml(html, article_id):
         if not text:
             continue
 
-        # Title
+        # TITLE
         if "rasi_name" in classes:
             xml_lines.append("<title>")
             xml_lines.append(text)
             xml_lines.append("</title>")
             continue
 
-        # Hint
+        # HINT
         if "rasi_subheading" in classes and "text-center" in classes:
             xml_lines.append("<hint>")
             xml_lines.append(text)
             xml_lines.append("</hint>")
             continue
 
-        # Subtitle
+        # SUBTITLE
         if "rasi_subheading" in classes:
             xml_lines.append("<subtitle>")
             xml_lines.append(text)
             xml_lines.append("</subtitle>")
             continue
 
-        # Bold Paragraph
+        # CAPTION
+        if (
+            "text-center" in classes
+            and "txt_bold" in classes
+        ):
+            xml_lines.append("<caption>")
+            xml_lines.append(text)
+            xml_lines.append("</caption>")
+            continue
+
+        # BOLD PARAGRAPH
         if tag.find("b"):
 
             inner_html = tag.decode_contents()
@@ -66,11 +78,12 @@ def convert_html_to_xml(html, article_id):
             xml_lines.append("</p>")
             continue
 
-        # Normal Paragraph
+        # NORMAL PARAGRAPH
         xml_lines.append("<p>")
         xml_lines.append(text)
         xml_lines.append("</p>")
 
+    # Add image if HTML has no image
     if not image_found:
         xml_lines.insert(1, f"<image>{article_id}</image>")
 
@@ -99,7 +112,10 @@ if uploaded_files:
 
             article_id = uploaded_file.name.replace(".txt", "")
 
-            html = uploaded_file.read().decode("utf-8")
+            html = uploaded_file.read().decode(
+                "utf-8",
+                errors="ignore"
+            )
 
             xml_content = convert_html_to_xml(
                 html,
@@ -112,7 +128,7 @@ if uploaded_files:
             )
 
             progress.progress(
-                int((idx + 1) / total * 100)
+                int(((idx + 1) / total) * 100)
             )
 
     st.success("Conversion Completed")
@@ -123,3 +139,4 @@ if uploaded_files:
         file_name="xml_files.zip",
         mime="application/zip"
     )
+```
