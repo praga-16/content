@@ -1,19 +1,3 @@
-
-import streamlit as st
-from bs4 import BeautifulSoup
-import zipfile
-import io
-
-st.set_page_config(page_title="TXT to XML Converter", layout="wide")
-
-st.title("TXT → XML Converter")
-
-uploaded_files = st.file_uploader(
-    "Upload TXT Files",
-    type=["txt"],
-    accept_multiple_files=True
-)
-
 def convert_html_to_xml(html, article_id):
 
     soup = BeautifulSoup(html, "html.parser")
@@ -23,10 +7,20 @@ def convert_html_to_xml(html, article_id):
 
     xml_lines.append("<set>")
 
-    for tag in soup.find_all(["p", "img"]):
+    for tag in soup.find_all(["p", "img", "hr"]):
+
+        # LINE
+        if tag.name == "hr":
+            xml_lines.append("<line></line>")
+            continue
 
         # IMAGE
         if tag.name == "img":
+
+            # Skip bullet icons
+            if "iot_bullet" in tag.get("class", []):
+                continue
+
             xml_lines.append(f"<image>{article_id}</image>")
             image_found = True
             continue
@@ -45,7 +39,10 @@ def convert_html_to_xml(html, article_id):
             continue
 
         # HINT
-        if "rasi_subheading" in classes and "text-center" in classes:
+        if (
+            "rasi_subheading" in classes
+            and "text-center" in classes
+        ):
             xml_lines.append("<hint>")
             xml_lines.append(text)
             xml_lines.append("</hint>")
@@ -68,6 +65,16 @@ def convert_html_to_xml(html, article_id):
             xml_lines.append("</caption>")
             continue
 
+        # BULLET
+        if tag.find("img", class_="iot_bullet"):
+
+            bullet_text = tag.get_text(" ", strip=True)
+
+            xml_lines.append("<bullet>")
+            xml_lines.append(bullet_text)
+            xml_lines.append("</bullet>")
+            continue
+
         # BOLD PARAGRAPH
         if tag.find("b"):
 
@@ -83,60 +90,10 @@ def convert_html_to_xml(html, article_id):
         xml_lines.append(text)
         xml_lines.append("</p>")
 
-    # Add image if HTML has no image
+    # Add image if no image exists
     if not image_found:
         xml_lines.insert(1, f"<image>{article_id}</image>")
 
     xml_lines.append("</set>")
 
     return "\n\n".join(xml_lines)
-
-
-if uploaded_files:
-
-    total = len(uploaded_files)
-
-    st.success(f"{total} files uploaded")
-
-    progress = st.progress(0)
-
-    zip_buffer = io.BytesIO()
-
-    with zipfile.ZipFile(
-        zip_buffer,
-        "w",
-        zipfile.ZIP_DEFLATED
-    ) as zip_file:
-
-        for idx, uploaded_file in enumerate(uploaded_files):
-
-            article_id = uploaded_file.name.replace(".txt", "")
-
-            html = uploaded_file.read().decode(
-                "utf-8",
-                errors="ignore"
-            )
-
-            xml_content = convert_html_to_xml(
-                html,
-                article_id
-            )
-
-            zip_file.writestr(
-                f"{article_id}.xml",
-                xml_content
-            )
-
-            progress.progress(
-                int(((idx + 1) / total) * 100)
-            )
-
-    st.success("Conversion Completed")
-
-    st.download_button(
-        label="Download All XML Files",
-        data=zip_buffer.getvalue(),
-        file_name="xml_files.zip",
-        mime="application/zip"
-    )
-
